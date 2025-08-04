@@ -247,4 +247,4 @@ If you have **300+ GuardDuty findings**, you can:
 
 ---
 
-If you'd like help exporting this as a `.md` file, generating a diagram, or writing the Lambda code, let me know!
+
