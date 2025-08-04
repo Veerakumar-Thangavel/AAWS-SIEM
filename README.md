@@ -4,7 +4,7 @@ This document provides a step-by-step guide to integrate various **AWS Security 
 
 ---
 
-## 🧩 Integration Overview
+## 🧹 Integration Overview
 
 | Component        | Purpose                                   |
 | ---------------- | ----------------------------------------- |
@@ -23,24 +23,92 @@ This document provides a step-by-step guide to integrate various **AWS Security 
 
 ### CloudTrail
 
-* Create a trail for all regions
-* Enable management events, data events (optional), and insights (optional)
-* Destination: S3 bucket (e.g., `my-org-logs/cloudtrail/`)
+* ✅ **Your Role**: Create and configure multi-region trail
+* Actions:
+
+  * Create a trail for all regions
+  * Enable management events, data events (optional), and insights (optional)
+  * Destination: S3 bucket (e.g., `my-org-logs/cloudtrail/`)
+* **IAM Role Required**:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["cloudtrail:CreateTrail", "cloudtrail:StartLogging", "s3:PutObject"],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ### GuardDuty
 
-* Enable in all regions
-* Use "Export Findings" to send to CloudWatch or EventBridge
+* ✅ **Your Role**: Enable and configure export
+* Actions:
+
+  * Enable in all regions
+  * Use "Export Findings" to send to CloudWatch or EventBridge
+* **IAM Role Required**:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["guardduty:EnableOrganizationAdminAccount", "events:PutRule", "events:PutTargets"],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ### AWS WAF
 
-* Enable logging via WAF console
-* Destination: Kinesis Data Firehose → S3 (or EventBridge)
+* ✅ **Your Role**: Set up logging through Firehose
+* Actions:
+
+  * Enable logging via WAF console
+  * Destination: Kinesis Data Firehose → S3 (or EventBridge)
+* **IAM Role Required**:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["waf:PutLoggingConfiguration", "firehose:PutRecord", "firehose:PutRecordBatch"],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ### VPC Flow Logs
 
-* Create flow logs per VPC or ENI
-* Destination: CloudWatch Logs or S3 bucket (e.g., `my-org-logs/vpc-flow-logs/`)
+* ✅ **Your Role**: Create flow logs and set destination
+* Actions:
+
+  * Create flow logs per VPC or ENI
+  * Destination: CloudWatch Logs or S3 bucket (e.g., `my-org-logs/vpc-flow-logs/`)
+* **IAM Role Required**:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["ec2:CreateFlowLogs", "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ---
 
@@ -53,7 +121,7 @@ This document provides a step-by-step guide to integrate various **AWS Security 
 | WAF           | `waf-logs/` via Firehose |
 | VPC Flow Logs | `vpc-flow-logs/`         |
 
-**IAM Policy for SIEM:**
+**✅ Your Role: Create S3 bucket and IAM policy for SIEM access**
 
 ```json
 {
@@ -84,7 +152,7 @@ This document provides a step-by-step guide to integrate various **AWS Security 
 
 ### a. EventBridge Rules
 
-Create one rule per service if needed:
+✅ **Your Role**: Create rules and targets
 
 * **GuardDuty Findings**
 
@@ -103,10 +171,12 @@ Create one rule per service if needed:
 }
 ```
 
-* **WAF Logs via Firehose to S3 → Event Notification**
-* **VPC Flow Logs via CloudWatch Logs Subscriptions**
+* **WAF Logs**: Use Firehose S3 delivery + Event Notification or CloudWatch filter
+* **VPC Flow Logs**: CloudWatch Logs subscription filter
 
 ### b. Lambda Function Example
+
+✅ **Your Role**: Create Lambda and configure EventBridge trigger
 
 ```python
 import json
@@ -122,6 +192,8 @@ def lambda_handler(event, context):
 
 ### c. IAM Role for Lambda
 
+✅ **Your Role**: Attach appropriate IAM policies
+
 ```json
 {
   "Version": "2012-10-17",
@@ -131,7 +203,8 @@ def lambda_handler(event, context):
       "Action": [
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "events:PutEvents"
       ],
       "Resource": "*"
     }
@@ -155,9 +228,9 @@ def lambda_handler(event, context):
 ## ✅ Architecture Diagram
 
 ```plaintext
-AWS Services → S3 (Centralized Logs) ──────► SIEM (Pull)
+AWS Services → S3 (Centralized Logs) ──────▶ SIEM (Pull)
                  │
-                 └─► EventBridge → Lambda → SIEM (Push)
+                 └▶ EventBridge → Lambda → SIEM (Push)
 ```
 
 ---
@@ -170,3 +243,17 @@ AWS Services → S3 (Centralized Logs) ──────► SIEM (Pull)
 * Use least privilege IAM roles
 * Apply lifecycle policies to archive/delete old logs
 * Monitor Lambda/Firehose errors via CloudWatch
+
+---
+
+## 🔎 Additional Note on GuardDuty Findings
+
+If you have **300+ GuardDuty findings**, you can:
+
+* Export all findings using **Amazon EventBridge → Lambda → SIEM** for real-time detection
+* Or schedule periodic export to S3 and ingest using **SIEM pull model**
+* Consider setting up **severity-based alert rules** in your SIEM
+
+---
+
+If you'd like help exporting this as a `.md` file, generating a diagram, or writing the Lambda code, let me know!
