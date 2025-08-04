@@ -225,15 +225,6 @@ def lambda_handler(event, context):
 
 ---
 
-## ✅ Architecture Diagram
-
-```plaintext
-AWS Services → S3 (Centralized Logs) ──────▶ SIEM (Pull)
-                 │
-                 └▶ EventBridge → Lambda → SIEM (Push)
-```
-
----
 
 ## 🔐 Best Practices
 
